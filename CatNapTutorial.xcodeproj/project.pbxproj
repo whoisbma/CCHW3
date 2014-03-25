@@ -49,6 +49,7 @@
 		8B56457218C45466009D2E12 /* SKNode+SKTExtras.m in Sources */ = {isa = PBXBuildFile; fileRef = 8B56456B18C45466009D2E12 /* SKNode+SKTExtras.m */; };
 		8B56457318C45466009D2E12 /* SKTAudio.m in Sources */ = {isa = PBXBuildFile; fileRef = 8B56456D18C45466009D2E12 /* SKTAudio.m */; };
 		8B56457418C45466009D2E12 /* SKTUtils.mm in Sources */ = {isa = PBXBuildFile; fileRef = 8B56456F18C45466009D2E12 /* SKTUtils.mm */; };
+		8B955EF118E2087200C85C45 /* OldTVNode.m in Sources */ = {isa = PBXBuildFile; fileRef = 8B955EF018E2087200C85C45 /* OldTVNode.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -117,6 +118,9 @@
 		8B56456D18C45466009D2E12 /* SKTAudio.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SKTAudio.m; sourceTree = "<group>"; };
 		8B56456E18C45466009D2E12 /* SKTUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SKTUtils.h; sourceTree = "<group>"; };
 		8B56456F18C45466009D2E12 /* SKTUtils.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = SKTUtils.mm; sourceTree = "<group>"; };
+		8B955EEF18E2087200C85C45 /* OldTVNode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OldTVNode.h; sourceTree = "<group>"; };
+		8B955EF018E2087200C85C45 /* OldTVNode.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = OldTVNode.m; sourceTree = "<group>"; };
+		8B955EF218E20F2000C85C45 /* Physics.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Physics.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -186,6 +190,9 @@
 				8B4ED40218BF08FC004AE0EE /* ViewController.m */,
 				8B4ED40418BF08FC004AE0EE /* MyScene.h */,
 				8B4ED40518BF08FC004AE0EE /* MyScene.m */,
+				8B955EEF18E2087200C85C45 /* OldTVNode.h */,
+				8B955EF018E2087200C85C45 /* OldTVNode.m */,
+				8B955EF218E20F2000C85C45 /* Physics.h */,
 				8B4ED40718BF08FC004AE0EE /* Spaceship.png */,
 				8B56456218C438B7009D2E12 /* SKSpriteNode+DebugDraw.h */,
 				8B56456318C438B7009D2E12 /* SKSpriteNode+DebugDraw.m */,
@@ -434,6 +441,7 @@
 				8B4ED40318BF08FC004AE0EE /* ViewController.m in Sources */,
 				8B4ED3FD18BF08FC004AE0EE /* AppDelegate.m in Sources */,
 				8B56457118C45466009D2E12 /* SKEmitterNode+SKTExtras.m in Sources */,
+				8B955EF118E2087200C85C45 /* OldTVNode.m in Sources */,
 				8B4ED3F918BF08FC004AE0EE /* main.m in Sources */,
 				8B56457318C45466009D2E12 /* SKTAudio.m in Sources */,
 			);
