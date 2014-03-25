@@ -9,6 +9,7 @@
 #import "MyScene.h"
 #import "SKSpriteNode+DebugDraw.h"
 #import "SKTAudio.h"
+#import "SKTUtils.h" //imports library of helper methods
 
 typedef NS_OPTIONS(uint32_t, CNPhysicsCategory) {
     CNPhysicsCategoryCat    = 1 << 0, //0001 = 1
@@ -16,6 +17,8 @@ typedef NS_OPTIONS(uint32_t, CNPhysicsCategory) {
     CNPhysicsCategoryBed    = 1 << 2, //0100 = 4
     CNPhysicsCategoryEdge   = 1 << 3, //1000 = 8
     CNPhysicsCategoryLabel  = 1 << 4, //10000 = 16
+    CNPhysicsCategorySpring = 1 << 5, //100000 = 32
+    CNPhysicsCategoryHook   = 1 << 6, //1000000 = 64
 };
 //defines three categories with bitwise shift operator, up to 32 categories max
 
@@ -29,6 +32,15 @@ typedef NS_OPTIONS(uint32_t, CNPhysicsCategory) {
     SKSpriteNode *_catNode;  // cat sprite
     SKSpriteNode *_bedNode;  // bed sprite
     NSNumber *_bounceCount;
+    
+    BOOL _isHooked;
+    
+    SKSpriteNode *_hookBaseNode;
+    SKSpriteNode *_hookNode;
+    SKSpriteNode *_ropeNode;
+    
+    SKSpriteNode *_seesawBaseNode;
+    SKSpriteNode *_seesawNode;
     
     int _currentLevel;
     int _bounceIntValue;
@@ -75,6 +87,96 @@ typedef NS_OPTIONS(uint32_t, CNPhysicsCategory) {
     //sets bed's physics body category, leaves bit mask collider at default (collides with all)
 }
 
+- (void) addSeesawAtPosition:(CGPoint)seesawPosition
+{
+    //_seesawBaseNode = nil;
+    //_seesawNode = nil;
+    
+    _seesawBaseNode = [SKSpriteNode spriteNodeWithImageNamed:@"45x45"];
+    _seesawBaseNode.position = CGPointMake(seesawPosition.x, seesawPosition.y);
+    _seesawBaseNode.physicsBody = [SKPhysicsBody bodyWithRectangleOfSize:_seesawBaseNode.size];
+    _seesawBaseNode.physicsBody.categoryBitMask = 0;
+    _seesawBaseNode.physicsBody.collisionBitMask = 0;
+    [_gameNode addChild:_seesawBaseNode];
+    
+    SKPhysicsJointFixed *seesawFix = [SKPhysicsJointFixed
+                                      jointWithBodyA:_seesawBaseNode.physicsBody
+                                      bodyB:self.physicsBody
+                                      anchor:CGPointZero];
+    [self.physicsWorld addJoint:seesawFix];
+    
+    _seesawNode = [SKSpriteNode spriteNodeWithImageNamed:@"430x30"];
+    _seesawNode.position = CGPointMake(seesawPosition.x, seesawPosition.y);
+    _seesawNode.physicsBody = [SKPhysicsBody bodyWithRectangleOfSize:_seesawNode.size];
+    _seesawNode.physicsBody.categoryBitMask = CNPhysicsCategoryBlock;
+    _seesawNode.physicsBody.collisionBitMask = CNPhysicsCategoryCat | CNPhysicsCategoryBlock;
+    
+    [_gameNode addChild:_seesawNode];
+    
+    SKPhysicsJointPin *seesawJoint = [SKPhysicsJointPin jointWithBodyA:_seesawBaseNode.physicsBody
+                                                                 bodyB:_seesawNode.physicsBody
+                                                                anchor:CGPointMake(seesawPosition.x, seesawPosition.y)];
+    [self.physicsWorld addJoint:seesawJoint];
+}
+
+- (void) addHookAtPosition:(CGPoint)hookPosition
+{
+    _hookBaseNode = nil;
+    _hookNode = nil;
+    _ropeNode = nil;
+    _isHooked = NO;
+    
+    //initializes the hook struture - will pass to this method the hook key from the .plist
+    //this code cleans up the instance variables and makes sure there is a hook object found in the .plist data
+    
+    _hookBaseNode = [SKSpriteNode spriteNodeWithImageNamed:@"hook_base"];
+    _hookBaseNode.position = CGPointMake(hookPosition.x, hookPosition.y - _hookBaseNode.size.height/2);
+    _hookBaseNode.physicsBody = [SKPhysicsBody bodyWithRectangleOfSize:_hookBaseNode.size];
+    [_gameNode addChild:_hookBaseNode];
+    
+    //creates the piece attached to the ceiling along with its physics body, positions them at the top
+    
+    SKPhysicsJointFixed *ceilingFix = [SKPhysicsJointFixed
+                                       jointWithBodyA:_hookBaseNode.physicsBody
+                                       bodyB:self.physicsBody
+                                       anchor:CGPointZero];
+    [self.physicsWorld addJoint:ceilingFix];
+    //use SKPhysicsJointFixed factory method to get an instance of a joint between the _hookBaseNode's body and the scene's own body, which is the edge loop.
+    //then provide a CGPoint to tell the scene where to create the connection between the two bodies.
+    
+    _ropeNode = [SKSpriteNode spriteNodeWithImageNamed:@"rope"];
+    _ropeNode.anchorPoint = CGPointMake(0, 0.5);
+    _ropeNode.position = _hookBaseNode.position;
+    [_gameNode addChild: _ropeNode];
+    
+    _hookNode = [SKSpriteNode spriteNodeWithImageNamed:@"hook"];
+    _hookNode.position = CGPointMake(hookPosition.x, hookPosition.y-63);
+    _hookNode.physicsBody = [SKPhysicsBody bodyWithCircleOfRadius:_hookNode.size.width/2];
+    _hookNode.physicsBody.categoryBitMask = CNPhysicsCategoryHook;
+    _hookNode.physicsBody.contactTestBitMask = CNPhysicsCategoryCat;
+    _hookNode.physicsBody.collisionBitMask = kNilOptions;
+    [_gameNode addChild: _hookNode];
+    //create a sprite, set position, create physics body
+    //set category bitmask to CNPhysicsCategoryHook and instruct the physics world to detect contacts between the hook and the cat
+    //position the hook just under the ceiling base
+    
+    SKPhysicsJointSpring *ropeJoint = [SKPhysicsJointSpring
+                                       jointWithBodyA:_hookBaseNode.physicsBody
+                                       bodyB:_hookNode.physicsBody
+                                       anchorA:_hookBaseNode.position
+                                       anchorB:CGPointMake(_hookNode.position.x, _hookNode.position.y+_hookNode.size.height/2)];
+    
+    [self.physicsWorld addJoint:ropeJoint];
+}
+
+-(void) releaseHook
+{
+    _catNode.zRotation = 0;
+    [self.physicsWorld removeJoint:_hookNode.physicsBody.joints.lastObject];
+    //joints property is an array of all the joints that are connected to a given physics body
+    _isHooked = NO;
+}
+
 - (void) addCatAtPosition:(CGPoint)pos
 {
     //add the cat in the level on its starting position
@@ -94,7 +196,7 @@ typedef NS_OPTIONS(uint32_t, CNPhysicsCategory) {
     
     _catNode.physicsBody.contactTestBitMask = CNPhysicsCategoryBed | CNPhysicsCategoryEdge;
     
-    _catNode.physicsBody.collisionBitMask = CNPhysicsCategoryBlock|CNPhysicsCategoryEdge;
+    _catNode.physicsBody.collisionBitMask = CNPhysicsCategoryBlock|CNPhysicsCategoryEdge|CNPhysicsCategorySpring;
 }
 
 - (void) setupLevel:(int)levelNum
@@ -111,21 +213,58 @@ typedef NS_OPTIONS(uint32_t, CNPhysicsCategory) {
     
     [[SKTAudio sharedInstance] playBackgroundMusic:@"bgMusic.mp3"];
     
+    [self addSpringsFromArray:level[@"springs"]];
+    
+    if (level[@"hookPosition"]) {
+        [self addHookAtPosition:CGPointFromString(level[@"hookPosition"])];
+    }  //checks if there's a hookPosition key defined in the level .plist file then converts it to a CGPoint and passes it to addHookAtPosition
+    
+    if (level[@"seesawPosition"]) {
+        [self addSeesawAtPosition:CGPointFromString(level[@"seesawPosition"])];
+    }
+    
 }
 
 - (void) addBlocksFromArray:(NSArray*)blocks
 {
     //1 take a list of blocks as defined in the .plist and loop over the list
     for (NSDictionary *block in blocks) {
-        //2 for each block, create a CGRect from the rect key of each block object, then call another helper method which creates a block sprite for you, then add it to the scene with addChild
-        SKSpriteNode *blockSprite = [self addBlockWithRect:CGRectFromString(block[@"rect"])];
         
-        //set category and collision bit masks for each block
-        blockSprite.physicsBody.categoryBitMask = CNPhysicsCategoryBlock;
-        blockSprite.physicsBody.collisionBitMask = CNPhysicsCategoryBlock | CNPhysicsCategoryCat | CNPhysicsCategoryEdge;
-        //assigns each block's physics body to the block category, then set them to collide with both the cat and block categories (with bitwise OR |)
+        if (block[@"tuple"]) {
+            //
+            CGRect rect1 = CGRectFromString([block[@"tuple"] firstObject]);
+            SKSpriteNode* block1 = [self addBlockWithRect:rect1];
+            block1.physicsBody.friction = 0.8;
+            block1.physicsBody.categoryBitMask = CNPhysicsCategoryBlock;
+            block1.physicsBody.collisionBitMask = CNPhysicsCategoryBlock | CNPhysicsCategoryCat | CNPhysicsCategoryEdge;
+            [_gameNode addChild: block1];
+            
+            //
+            CGRect rect2 = CGRectFromString([block[@"tuple"] lastObject]);
+            SKSpriteNode* block2 = [self addBlockWithRect: rect2];
+            block2.physicsBody.friction = 0.8;
+            block2.physicsBody.categoryBitMask = CNPhysicsCategoryBlock;
+            block2.physicsBody.collisionBitMask = CNPhysicsCategoryBlock | CNPhysicsCategoryCat | CNPhysicsCategoryEdge;
+            [_gameNode addChild: block2];
+            
+            [self.physicsWorld addJoint:[SKPhysicsJointFixed
+                                         jointWithBodyA:block1.physicsBody
+                                         bodyB:block2.physicsBody
+                                         anchor:CGPointZero]
+             ];
+            
+        } else {
         
-        [_gameNode addChild:blockSprite];
+            //2 for each block, create a CGRect from the rect key of each block object, then call another helper method which creates a block sprite for you, then add it to the scene with addChild
+            SKSpriteNode *blockSprite = [self addBlockWithRect:CGRectFromString(block[@"rect"])];
+        
+            //set category and collision bit masks for each block
+            blockSprite.physicsBody.categoryBitMask = CNPhysicsCategoryBlock;
+            blockSprite.physicsBody.collisionBitMask = CNPhysicsCategoryBlock | CNPhysicsCategoryCat | CNPhysicsCategoryEdge;
+            //assigns each block's physics body to the block category, then set them to collide with both the cat and block categories (with bitwise OR |)
+        
+            [_gameNode addChild:blockSprite];
+        }
     }
 }
 
@@ -144,6 +283,7 @@ typedef NS_OPTIONS(uint32_t, CNPhysicsCategory) {
     return blockSprite;
 }
 
+//TOUCH EVENT!
 - (void) touchesBegan: (NSSet *) touches withEvent:(UIEvent *) event
 {
     [super touchesBegan:touches withEvent:event];
@@ -157,11 +297,30 @@ typedef NS_OPTIONS(uint32_t, CNPhysicsCategory) {
      ^(SKPhysicsBody *body, BOOL *stop) {
          // 3  since all destructible bodies are CNPhysicsCategoryBlock, easy to determine whether to destroy the current body. use the body's node property to access the SKNode represented by the physics body and call removeFromParent on it
          if (body.categoryBitMask == CNPhysicsCategoryBlock) {
+             for (SKPhysicsJoint* joint in body.joints) {
+                 [self.physicsWorld removeJoint: joint];
+                 [joint.bodyA.node removeFromParent];
+                 [joint.bodyB.node removeFromParent];
+             }
              [body.node removeFromParent];
              *stop = YES; //4   set stop to YES so that the enumerator won't loop over the rest unneccessarily.
              
              //5  make the blocks pop with a sound
              [self runAction:[SKAction playSoundFileNamed:@"pop.mp3"waitForCompletion:NO]];
+         }
+         if (body.categoryBitMask == CNPhysicsCategorySpring) {
+             // if spring is tapped
+             SKSpriteNode *spring = (SKSpriteNode*)body.node;
+             // fetch the SKSpriteNode instance and store it in the spring variable
+             [body applyImpulse:CGVectorMake(0,12) atPoint:CGPointMake(spring.size.width/2, spring.size.height)];
+             //apply an impulse to the body by using applyImpulse:atPoint:
+             [body.node runAction: [SKAction sequence:@[[SKAction waitForDuration:1],
+                                                        [SKAction removeFromParent]]]];
+             //remove the catapult after delay of one second
+             *stop = YES;
+         }
+         if (body.categoryBitMask == CNPhysicsCategoryCat && _isHooked) {
+             [self releaseHook];
          }
      }];
 }
@@ -185,8 +344,55 @@ typedef NS_OPTIONS(uint32_t, CNPhysicsCategory) {
         NSLog(@"Label impact");
         //_bounceCount = [NSNumber numberWithInt:1];
         //NSLog (@"Value = %f", _bounceIntValue);
+        
+        
+        SKLabelNode* label = (contact.bodyA.categoryBitMask==CNPhysicsCategoryLabel)?(SKLabelNode*)contact.bodyA.node:(SKLabelNode*)contact.bodyB.node;
+        
+        if (label.userData==nil) {
+            label.userData = [@{@"bounceCount":@0} mutableCopy];
+        }
+        
+        int newBounceCount = [label.userData[@"bounceCount"] intValue]+1;
+        NSLog(@"bounce: %i", newBounceCount);
+        if (newBounceCount==4) {
+            [label removeFromParent];
+        } else {
+            label.userData = [@{@"bounceCount":@(newBounceCount)} mutableCopy];
+        }
+    }
+    
+    if (collision == (CNPhysicsCategoryHook | CNPhysicsCategoryCat)) {
+        //1 force zero velocity and angular velocity
+        _catNode.physicsBody.velocity = CGVectorMake(0,0);
+        _catNode.physicsBody.angularVelocity = 0;
+        
+        //2 create a new joint from from the SKPhysicsContact object - the two bodies and the point where they touched
+        SKPhysicsJointFixed *hookJoint =
+            [SKPhysicsJointFixed jointWithBodyA:_hookNode.physicsBody
+                                          bodyB:_catNode.physicsBody
+                                         anchor:CGPointMake(_hookNode.position.x, _hookNode.position.y + _hookNode.size.height/2)];
+        [self.physicsWorld addJoint:hookJoint];
+        
+        //3
+        //so the cat doesn't wake up while it hangs around
+        _isHooked = YES;
     }
 }
+
+- (void)didSimulatePhysics
+{
+    CGFloat angle = CGPointToAngle(CGPointSubtract(_hookBaseNode.position, _hookNode.position));
+    _ropeNode.zRotation = M_PI + angle;
+    //position the rope
+    
+    if (_catNode.physicsBody.contactTestBitMask && fabs(_catNode.zRotation) > DegreesToRadians(25)) {
+        if (_isHooked == NO)[self lose];
+    }
+    //performs 2 tests - is the cat still active? check whether its contactTestBitMask is set (remember that it is disabled when the player completes the level.
+    // - is the cat tilted too much? is the absolute value of the zrotation property more than the radian equivalent of 25 degrees
+    // when both of these conditions are true, then call lose self right away
+}
+
 
 - (void)inGameMessage:(NSString*)text
 {
@@ -204,13 +410,32 @@ typedef NS_OPTIONS(uint32_t, CNPhysicsCategory) {
     label.physicsBody.contactTestBitMask = CNPhysicsCategoryEdge;
     label.physicsBody.restitution = 0.7;
     
+    
     //3 add the label to the scene
     [_gameNode addChild:label];
+
     
     //4 run a sequence action --waits for a bit, then removes the label from the screen
     //[label runAction: [SKAction sequence:@[
     //                                       [SKAction waitForDuration:3.0],
     //                                       [SKAction removeFromParent]]]];
+}
+
+-(void) addSpringsFromArray:(NSArray *) springs
+{
+    for (NSDictionary *spring in springs) {
+        //loop over the list coming in from the .plist file and for each object...
+        SKSpriteNode *springSprite = [SKSpriteNode spriteNodeWithImageNamed:@"spring"];
+        //create a new sprite...
+        springSprite.position = CGPointFromString(spring[@"position"]);
+        springSprite.physicsBody = [SKPhysicsBody bodyWithRectangleOfSize:springSprite.size ];
+        //and a physics body...
+        springSprite.physicsBody.categoryBitMask = CNPhysicsCategorySpring;
+        springSprite.physicsBody.collisionBitMask = CNPhysicsCategoryEdge | CNPhysicsCategoryBlock | CNPhysicsCategoryCat;
+        [springSprite attachDebugRectWithSize:springSprite.size];
+        [_gameNode addChild: springSprite];
+        //and add them to the scene
+    }
 }
 
 -(void)newGame
@@ -223,6 +448,10 @@ typedef NS_OPTIONS(uint32_t, CNPhysicsCategory) {
 
 -(void)lose
 {
+//    if (_currentLevel > 1 ) {
+//        _currentLevel--;
+//    }
+    
     //1 - disable further contact detection by setting _catNode's contact TestBitMask to 0 - disables the problem of receiving multiple contact messages.
     _catNode.physicsBody.contactTestBitMask = 0;
     [_catNode setTexture: [SKTexture textureWithImageNamed:@"cat_awake"]];
@@ -241,6 +470,12 @@ typedef NS_OPTIONS(uint32_t, CNPhysicsCategory) {
 
 -(void)win
 {
+    //progress levels
+    if (_currentLevel < 4) {
+        _currentLevel ++;
+    }
+    
+    
     //1 - make physics simulation no longer affect cat
     _catNode.physicsBody = nil;
     
